@@ -1,0 +1,20 @@
+{
+  "name": "devops-tasks-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "API didática para a palestra Do Git ao deploy",
+  "type": "module",
+  "engines": {
+    "node": "24.19.0",
+    "npm": "11.17.0"
+  },
+  "packageManager": "npm@11.17.0",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "fastify": "5.12.3"
+  }
+}

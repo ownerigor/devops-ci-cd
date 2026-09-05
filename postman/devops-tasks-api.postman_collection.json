@@ -1,0 +1,432 @@
+{
+  "info": {
+    "name": "devops-tasks-api — Do Git ao deploy",
+    "description": "Execute na ordem pelo Collection Runner. baseUrl aponta para a API local e pode ser alterada para o deploy. O POST salva taskId automaticamente. O fluxo cria e exclui apenas sua própria tarefa; não exige uma lista inicialmente vazia. Para requisições individuais, execute primeiro a criação antes de consultar, atualizar ou excluir. Dados são perdidos ao reiniciar a API.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "taskId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - Verificar saúde",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Aplicação saudável', () => pm.expect(pm.response.json()).to.eql({ status: 'ok', application: 'devops-tasks-api' }));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Listar tarefas",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/tasks",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "tasks"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Lista de tarefas', () => pm.expect(pm.response.json()).to.be.an('array'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Criar tarefa e salvar ID",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/tasks",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "tasks"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Estudar DevOps\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status HTTP 201', () => pm.response.to.have.status(201));",
+              "if (pm.response.code === 201) { pm.collectionVariables.set('taskId', String(pm.response.json().id)); }",
+              "pm.test('Dados da tarefa', () => { const task = pm.response.json(); pm.expect(task.id).to.eql(Number(pm.collectionVariables.get('taskId'))); pm.expect(task.title).to.eql('Estudar DevOps'); pm.expect(task.completed).to.eql(false); });",
+              "pm.test('Location da tarefa', () => pm.expect(pm.response.headers.get('Location')).to.eql('/tasks/' + pm.collectionVariables.get('taskId')));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Consultar tarefa criada",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/tasks/{{taskId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "tasks",
+            "{{taskId}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Dados da tarefa', () => { const task = pm.response.json(); pm.expect(task.id).to.eql(Number(pm.collectionVariables.get('taskId'))); pm.expect(task.title).to.eql('Estudar DevOps'); pm.expect(task.completed).to.eql(false); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Atualizar tarefa",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/tasks/{{taskId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "tasks",
+            "{{taskId}}"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Apresentar DevOps na ETEC\",\n  \"completed\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Dados da tarefa', () => { const task = pm.response.json(); pm.expect(task.id).to.eql(Number(pm.collectionVariables.get('taskId'))); pm.expect(task.title).to.eql('Apresentar DevOps na ETEC'); pm.expect(task.completed).to.eql(true); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - Confirmar atualização",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/tasks/{{taskId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "tasks",
+            "{{taskId}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Dados da tarefa', () => { const task = pm.response.json(); pm.expect(task.id).to.eql(Number(pm.collectionVariables.get('taskId'))); pm.expect(task.title).to.eql('Apresentar DevOps na ETEC'); pm.expect(task.completed).to.eql(true); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 - Rejeitar título vazio",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/tasks",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "tasks"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status HTTP 400', () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 - Rejeitar completed com tipo inválido",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/tasks",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "tasks"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Teste inválido\",\n  \"completed\": \"true\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status HTTP 400', () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 - Rejeitar PUT sem completed",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/tasks/{{taskId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "tasks",
+            "{{taskId}}"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Atualização incompleta\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status HTTP 400', () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 - Rejeitar ID inválido",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/tasks/abc",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "tasks",
+            "abc"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status HTTP 400', () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 - Excluir tarefa criada",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/tasks/{{taskId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "tasks",
+            "{{taskId}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status HTTP 204', () => pm.response.to.have.status(204));",
+              "pm.test('Resposta sem conteúdo', () => pm.expect(pm.response.text()).to.eql(''));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 - Confirmar exclusão",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/tasks/{{taskId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "tasks",
+            "{{taskId}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status HTTP 404', () => pm.response.to.have.status(404));",
+              "pm.test('Tarefa não encontrada', () => pm.expect(pm.response.json().message).to.eql('Tarefa não encontrada'));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

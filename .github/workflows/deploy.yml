@@ -1,0 +1,37 @@
+name: CD — preparação do deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Preparar entrega após CI aprovado
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do commit validado pelo CI
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - name: Informar integração pendente
+        run: |
+          echo '::notice::Deploy pendente: escolher hospedagem e configurar integração e secrets.'
+          echo '### CD preparado; aplicação ainda não publicada' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Faltam plataforma, destino, credenciais e verificação pública de /health.' >> "$GITHUB_STEP_SUMMARY"
+      # Adicionar aqui a publicação do commit validado e a verificação de /health.
+      # Usar GitHub Actions Secrets para as credenciais da plataforma escolhida.
