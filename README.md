@@ -120,7 +120,12 @@ devops-tasks-api/               # conteúdo na raiz deste diretório de trabalho
 │   └── tasks.test.js          # testes automatizados
 ├── .github/workflows/
 │   ├── ci.yml                # dependências, testes e build Docker
-│   └── deploy.yml            # preparação do CD após CI aprovado
+│   └── deploy.yml            # CD no runner Windows após CI aprovado
+├── scripts/
+│   ├── deploy-local.ps1      # build, substituição do contêiner e teste de saúde
+│   └── start-runner.ps1      # inicia o runner para a palestra
+├── postman/
+│   └── devops-tasks-api.postman_collection.json
 ├── .dockerignore             # exclui arquivos desnecessários do contexto Docker
 ├── .gitignore                # exclui dependências, logs e arquivos de ambiente
 ├── .nvmrc                    # versão do Node para gerenciadores compatíveis
@@ -149,16 +154,16 @@ GitHub Actions
      ├── Gera imagem Docker
      │
      ▼
-   Deploy (integração pendente da escolha de hospedagem)
+   Runner Windows → Docker local
      │
      ▼
-Aplicação no ar
+Aplicação no ar em localhost:3000
 ```
 
 - **Git:** controle de versão e histórico das alterações.
 - **GitHub:** repositório remoto e colaboração.
 - **CI (Continuous Integration):** valida automaticamente cada alteração.
-- **CD (Continuous Deployment):** publica automaticamente uma alteração aprovada quando houver integração com a hospedagem.
+- **CD (Continuous Deployment):** publica automaticamente uma alteração aprovada no Docker da máquina da palestra.
 - **Docker:** empacota aplicação e ambiente para execução consistente.
 
 ### CI: `.github/workflows/ci.yml`
@@ -175,19 +180,45 @@ Uma etapa que falha impede as seguintes. Esse workflow não publica a aplicaçã
 
 O evento `workflow_run` aguarda o término do workflow chamado `CI`. O job só executa se o resultado for `success`, a origem for `push` na `main` e o repositório de origem for o próprio repositório. Um CI de pull request não dispara a preparação de entrega. CI vermelho deixa o job de CD ignorado.
 
-O checkout usa `head_sha` do CI, garantindo o mesmo commit validado. O workflow precisa estar na branch padrão do GitHub (`main`). Hoje ele apenas apresenta um aviso e um resumo de **integração pendente**; um resultado verde nesse job não significa deploy realizado.
+O checkout usa `head_sha` do CI, garantindo o mesmo commit validado. O workflow precisa estar na branch padrão do GitHub (`main`). O CI executa na infraestrutura do GitHub; o CD executa no runner Windows com o rótulo `etec-local`, na máquina da apresentação na ETEC de Fernandópolis.
 
-## O que falta para publicar
+## Deploy na máquina da palestra
 
-Nenhuma hospedagem foi identificada no diretório. Nenhum serviço pago foi criado. Precisamos definir:
+O runner `etec-fernandopolis-local` está instalado em `C:\Users\igorq\actions-runner-etec`, fora do repositório e do OneDrive. O CD executa `scripts/deploy-local.ps1`, que:
 
-1. Plataforma (Render, Railway, Fly.io, VPS com Docker ou outra) e aplicação/serviço de destino.
-2. Forma de entrega: imagem em registry ou build pela plataforma, sempre do commit aprovado.
-3. Credenciais específicas dessa integração em **Settings → Secrets and variables → Actions**. Atualmente nenhum secret de deploy é necessário; os nomes exatos serão definidos com a plataforma. Tokens, chaves SSH e senhas nunca devem entrar nos arquivos.
-4. Comando de publicação no `deploy.yml` e URL pública para verificar `/health`, com tentativas limitadas enquanto a aplicação inicia.
-5. Caso a plataforma tenha deploy automático a cada push, desativá-lo ou condicioná-lo ao CI para impedir publicação quando os testes falharem.
+1. Verifica o Docker e constrói `devops-tasks-api:<SHA do commit aprovado>`.
+2. Para e remove somente o contêiner `devops-tasks-api`, se existir.
+3. Inicia a nova versão na porta `127.0.0.1:3000`, com reinício automático pelo Docker.
+4. Consulta `/health` com tentativas limitadas e falha o job se a API não estiver saudável.
 
-A demonstração completa de deploy depende dessas configurações. Até lá é possível demonstrar API, Git, testes, CI e Docker.
+O CI valida o build na nuvem; o CD reconstrói localmente o mesmo commit. Não há registry ou hospedagem externa. Nenhum secret adicional de deploy é necessário: a autenticação do runner fica na instalação local, e o checkout usa o token automático do GitHub com leitura do conteúdo. Nunca copie a pasta do runner para o repositório.
+
+O build ocorre antes de parar a versão anterior. A troca tem uma breve indisponibilidade e apaga as tarefas em memória. Não há rollback automático se a nova versão falhar ao iniciar. O script não encerra processos Node que ocupem a porta: pare qualquer `npm start` local antes do deploy.
+
+### Antes da apresentação
+
+1. Abra o Docker Desktop e aguarde o engine Linux ficar pronto.
+2. Mantenha o Windows ligado, conectado à internet e sem suspensão durante a apresentação.
+3. Confira em **Settings → Actions → Runners** se `etec-fernandopolis-local` está **Idle** (online). A instalação inicial foi iniciada em segundo plano. Após reiniciar o Windows, se estiver offline, execute na raiz do projeto:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-runner.ps1
+```
+
+Mantenha esse terminal aberto; `Ctrl+C` encerra o runner. Ele não foi instalado como serviço nem configurado para iniciar com o Windows. Não inicie uma segunda instância se já estiver online. Logs da inicialização em segundo plano ficam em `C:\Users\igorq\actions-runner-etec\runner-output.log`; os logs detalhados ficam em `_diag` nessa instalação.
+
+4. Faça commit e push e acompanhe **CI → CD — deploy local** na aba Actions.
+5. No Postman, mantenha `baseUrl` em `http://localhost:3000` e rode a collection.
+
+```powershell
+docker ps
+docker logs devops-tasks-api
+Invoke-RestMethod http://localhost:3000/health
+```
+
+Runner offline deixa o CD aguardando; Docker parado faz o job falhar. Depois de corrigir, use **Re-run failed jobs** na execução do CD. A API continua funcionando sem o runner enquanto o Docker e o contêiner estiverem ativos.
+
+O repositório é privado. O runner executa código com as permissões do usuário Windows; mantenha o acesso ao repositório restrito a colaboradores confiáveis. O CD não executa para pull requests.
 
 ## Git e GitHub
 
@@ -213,7 +244,7 @@ A branch padrão é `main`. Acompanhe a execução após cada push na aba [Actio
 
 ## Roteiro da palestra: verde → vermelho → verde
 
-1. Execute `npm test`, inicie a aplicação e mostre `/health`. Após conectar o remoto, faça push e abra a aba **Actions**. Mostre as etapas do CI e, quando a hospedagem estiver integrada, a API pública.
+1. Execute `npm test`, confirme Docker e runner online, faça push e abra a aba **Actions**. Mostre as etapas do CI, o CD e `/health` no Postman em `http://localhost:3000`. Não execute `npm start` ao mesmo tempo que o contêiner na porta 3000.
 2. Em `src/app.js`, troque somente `status: 'ok'` por `status: 'quebrado'`. Mantenha o teste intacto. Execute `npm test`: o teste de saúde deve falhar.
 3. Faça commit dessa alteração e push na `main` do repositório didático. Mostre CI vermelho, build ignorado e job de CD ignorado. Uma implantação anterior pode continuar no ar; o commit quebrado não é publicado.
 4. Restaure `status: 'ok'`, rode `npm test`, faça novo commit e push. Mostre CI verde e CD liberado.

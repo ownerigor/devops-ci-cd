@@ -1,4 +1,4 @@
-name: CD — preparação do deploy
+name: CD — deploy local
 
 on:
   workflow_run:
@@ -14,24 +14,30 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  prepare:
-    name: Preparar entrega após CI aprovado
+  deploy:
+    name: Publicar no Docker da máquina da palestra
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_branch == 'main' &&
       github.event.workflow_run.head_repository.full_name == github.repository
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Windows, X64, etec-local]
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: powershell
     steps:
       - name: Checkout do commit validado pelo CI
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
-      - name: Informar integração pendente
+      - name: Build e deploy local do commit aprovado
+        env:
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          echo '::notice::Deploy pendente: escolher hospedagem e configurar integração e secrets.'
-          echo '### CD preparado; aplicação ainda não publicada' >> "$GITHUB_STEP_SUMMARY"
-          echo 'Faltam plataforma, destino, credenciais e verificação pública de /health.' >> "$GITHUB_STEP_SUMMARY"
-      # Adicionar aqui a publicação do commit validado e a verificação de /health.
-      # Usar GitHub Actions Secrets para as credenciais da plataforma escolhida.
+          ./scripts/deploy-local.ps1 -CommitSha $env:DEPLOY_SHA
+      - name: API publicada
+        run: |
+          '### Deploy local concluído' >> $env:GITHUB_STEP_SUMMARY
+          'API disponível na máquina da palestra: http://localhost:3000/health' >> $env:GITHUB_STEP_SUMMARY
