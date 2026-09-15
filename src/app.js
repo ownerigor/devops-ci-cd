@@ -8,7 +8,7 @@ export function buildApp(options = {}) {
   });
 
   app.get('/health', async () => ({
-    status: 'ok',
+    status: 'quebrado',
     application: 'devops-tasks-api',
   }));
   app.register(tasksRoutes);
