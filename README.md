@@ -1,6 +1,6 @@
 # Do Git ao deploy: entendendo DevOps na prática
 
-API REST `devops-tasks-api` para uma palestra na ETEC. O objetivo é acompanhar uma alteração desde o código até a publicação usando Git, GitHub, testes, GitHub Actions e Docker.
+Repositório direcionado a execução de demonstração sobre um ciclo inteiro de DevOps utilizando a API REST `devops-tasks-api` para deploy. O objetivo é acompanhar uma alteração desde o código até a publicação usando Git, GitHub, testes, GitHub Actions e Docker.
 
 As tarefas ficam em memória: reiniciar o processo apaga os dados. Instâncias diferentes não compartilham tarefas. A API é didática, sem autenticação; use somente dados de demonstração.
 
@@ -123,7 +123,7 @@ devops-tasks-api/               # conteúdo na raiz deste diretório de trabalho
 │   └── deploy.yml            # CD no runner Windows após CI aprovado
 ├── scripts/
 │   ├── deploy-local.ps1      # build, substituição do contêiner e teste de saúde
-│   └── start-runner.ps1      # inicia o runner para a palestra
+│   └── start-runner.ps1      # inicia o runner na máquina local
 ├── postman/
 │   └── devops-tasks-api.postman_collection.json
 ├── .dockerignore             # exclui arquivos desnecessários do contexto Docker
@@ -132,7 +132,7 @@ devops-tasks-api/               # conteúdo na raiz deste diretório de trabalho
 ├── Dockerfile                # receita da imagem de produção
 ├── package.json              # metadados, versões, scripts e dependências
 ├── package-lock.json         # versões exatas da árvore de dependências
-└── README.md                 # roteiro da palestra e instruções
+└── README.md                 # como executar o projeto
 ```
 
 Não há compilação de JavaScript: o **build** demonstrado é a construção da imagem Docker.
@@ -163,7 +163,7 @@ Aplicação no ar em localhost:3000
 - **Git:** controle de versão e histórico das alterações.
 - **GitHub:** repositório remoto e colaboração.
 - **CI (Continuous Integration):** valida automaticamente cada alteração.
-- **CD (Continuous Deployment):** publica automaticamente uma alteração aprovada no Docker da máquina da palestra.
+- **CD (Continuous Deployment):** publica automaticamente uma alteração aprovada no Docker da máquina local.
 - **Docker:** empacota aplicação e ambiente para execução consistente.
 
 ### CI: `.github/workflows/ci.yml`
@@ -182,7 +182,7 @@ O evento `workflow_run` aguarda o término do workflow chamado `CI`. O job só e
 
 O checkout usa `head_sha` do CI, garantindo o mesmo commit validado. O workflow precisa estar na branch padrão do GitHub (`main`). O CI executa na infraestrutura do GitHub; o CD executa no runner Windows com o rótulo `etec-local`, na máquina da apresentação na ETEC de Fernandópolis.
 
-## Deploy na máquina da palestra
+## Deploy na máquina local
 
 O runner `etec-fernandopolis-local` está instalado em `C:\Users\igorq\actions-runner-etec`, fora do repositório e do OneDrive. O CD executa `scripts/deploy-local.ps1`, que:
 
@@ -241,17 +241,3 @@ git push -u origin main
 ```
 
 A branch padrão é `main`. Acompanhe a execução após cada push na aba [Actions](https://github.com/ownerigor/devops-ci-cd/actions); os workflows locais não representam uma execução na nuvem.
-
-## Roteiro da palestra: verde → vermelho → verde
-
-1. Execute `npm test`, confirme Docker e runner online, faça push e abra a aba **Actions**. Mostre as etapas do CI, o CD e `/health` no Postman em `http://localhost:3000`. Não execute `npm start` ao mesmo tempo que o contêiner na porta 3000.
-2. Em `src/app.js`, troque somente `status: 'ok'` por `status: 'quebrado'`. Mantenha o teste intacto. Execute `npm test`: o teste de saúde deve falhar.
-3. Faça commit dessa alteração e push na `main` do repositório didático. Mostre CI vermelho, build ignorado e job de CD ignorado. Uma implantação anterior pode continuar no ar; o commit quebrado não é publicado.
-4. Restaure `status: 'ok'`, rode `npm test`, faça novo commit e push. Mostre CI verde e CD liberado.
-
-Se a branch estiver protegida, use uma branch de demonstração e pull request: a falha aparecerá no CI do PR e o CD só poderá executar após uma alteração aprovada chegar à `main`.
-
-## Referências
-
-- [Validação no Fastify](https://fastify.dev/docs/latest/Reference/Validation-and-Serialization/).
-- [Evento workflow_run no GitHub Actions](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run).
